@@ -7,8 +7,8 @@
 
 
 ##---- Mapping table ----
-# PCHC code
-pchc.universe <- read.xlsx("02_Inputs/Universe_PCHCCode_20201118.xlsx", sheet = "PCHC")
+## PCHC code
+pchc.universe <- read.xlsx("02_Inputs/Universe_PCHCCode_20201201.xlsx", sheet = "PCHC")
 
 pchc.mapping1 <- pchc.universe %>% 
   filter(!is.na(`单位名称`), !is.na(PCHC_Code)) %>% 
@@ -32,8 +32,8 @@ pchc.mapping4 <- pchc.mapping3 %>%
             district = first(na.omit(district))) %>% 
   ungroup()
 
-# molecule
-ims_prod_ref <- fread("02_Inputs/cn_prod_ref_201903_1.txt") %>% 
+## molecule
+ims_prod_ref <- fread("02_Inputs/cn_prod_ref_201912_1.txt") %>% 
   setDF() %>% 
   mutate(Pack_Id = str_pad(Pack_Id, 7, "left", pad = "0")) %>% 
   select(Pack_Id, NFC123_Code)
@@ -48,18 +48,18 @@ ims.mol1 <- ims.mol.raw[, 1:21] %>%
          Mnf_Desc, ATC4_Code, NFC123_Code, Prd_desc, Pck_Desc, 
          Molecule_Desc)
 
-ims_prod_ref <- fread("02_Inputs/cn_prod_ref_201903_1.txt") %>% 
+ims_prod_ref <- fread("02_Inputs/cn_prod_ref_201912_1.txt") %>% 
   setDF() %>% 
   mutate(Pack_Id = str_pad(Pack_Id, 7, "left", pad = "0"))
 
-ims_mol_lkp_ref <- fread("02_Inputs/cn_mol_lkp_201903_1.txt") %>%
+ims_mol_lkp_ref <- fread("02_Inputs/cn_mol_lkp_201912_1.txt") %>%
   setDF() %>%
   arrange(Pack_ID, Molecule_ID) %>%
   mutate(Pack_ID  = str_pad(Pack_ID , 7, "left", pad = "0"))
 
-ims_mol_ref <- fread("02_Inputs/cn_mol_ref_201903_1.txt")
+ims_mol_ref <- fread("02_Inputs/cn_mol_ref_201912_1.txt")
 
-ims_corp_ref <- fread("02_Inputs/cn_corp_ref_201903_1.txt")
+ims_corp_ref <- fread("02_Inputs/cn_corp_ref_201912_1.txt")
 
 ims.mol2 <- ims_mol_lkp_ref %>%
   left_join(ims_mol_ref, by = c("Molecule_ID" = "Molecule_Id")) %>%
@@ -75,17 +75,16 @@ ims.mol2 <- ims_mol_lkp_ref %>%
 ims.mol <- ims.mol2 %>% 
   filter(!(packid %in% ims.mol1$packid)) %>% 
   mutate(Corp_ID = stri_pad_left(Corp_ID, 4, 0)) %>% 
-  bind_rows(ims.mol1) %>% 
-  filter(!(packid %in% c("4777502", "4777504")))
+  bind_rows(ims.mol1)
 
-# target city
+## target city
 kTargetCity <- c("北京", "上海", "杭州", "广州", "南京", "苏州", "宁波", 
                  "福州", "无锡", "温州", "济南", "青岛", "金华", "常州", 
                  "徐州", "台州", "厦门")
 
 
 ##---- Formatting raw data ----
-# history
+## history
 history.az <- read_feather("02_Inputs/data/01_AZ_CHC_Total_Raw.feather") %>% 
   select(year, date, quarter, province, city, district, pchc, packid, units, sales)
 
@@ -95,7 +94,7 @@ history.pfizer <- read_feather("02_Inputs/data/01_Pfizer_CHC_Total_Raw.feather")
 history.servier <- read_feather("02_Inputs/data/01_Servier_CHC_Total_Raw.feather") %>% 
   select(year, date, quarter, province, city, district, pchc, packid, units, sales)
 
-# AZ
+## AZ
 raw.az.ah <- read.xlsx('02_Inputs/data/AZ_安徽省_2020Q3_packid_moleinfo.xlsx')
 raw.az.bj <- read.xlsx('02_Inputs/data/AZ_北京市_2020Q3_packid_moleinfo.xlsx')
 raw.az.fj <- read.xlsx('02_Inputs/data/AZ_福建省_2020_packid_moleinfo(predicted by AZ_fj_2018_packid_moleinfo_v2).xlsx')
@@ -116,8 +115,6 @@ raw.az <- bind_rows(raw.az.ah, raw.az.bj, raw.az.fj,
            units = if_else(is.na(Volume), Value / Price, Volume), 
            sales = Value) %>% 
   left_join(pchc.mapping3, by = c('province', 'city', 'district', 'hospital')) %>% 
-  filter(is.na(pchc), grepl('社区', hospital), grepl('中心', hospital), !grepl('站', hospital)) %>% 
-  distinct(province, city, district, hospital)
   bind_rows(history.az) %>% 
   filter(quarter %in% c('2019Q3', '2020Q3'), 
          !is.na(pchc), !is.na(packid)) %>% 
@@ -134,7 +131,7 @@ raw.az <- bind_rows(raw.az.ah, raw.az.bj, raw.az.fj,
 
 write.xlsx(raw.az, '03_Outputs/01_Raw_AZ.xlsx')
 
-# Servier
+## Servier
 raw.servier.ahbjjs <- read.csv('02_Inputs/data/noAZ_EPI_ahbjjs_2020Q3_packid_moleinfo.csv')
 raw.servier.sd <- read.xlsx('02_Inputs/data/Servier_sd_2020Q3.xlsx')
 
@@ -151,11 +148,6 @@ raw.servier <- raw.servier.ahbjjs %>%
            city = if_else(City == "市辖区", "北京", gsub("市", "", City)), 
            district = County, 
            hospital = Hospital_Name, 
-           # atc4 = ATC4_Code, 
-           # nfc = NFC123_Code, 
-           # molecule = Molecule_Desc, 
-           # product = Prd_desc, 
-           # Corp_ID, 
            packid = stri_pad_left(packcode, 7, 0), 
            units = if_else(is.na(Volume), Value / Price, Volume), 
            sales = Value) %>% 
@@ -176,16 +168,14 @@ raw.servier <- raw.servier.ahbjjs %>%
 
 write.xlsx(raw.servier, '03_Outputs/01_Raw_Servier.xlsx')
 
-# Pfizer
-raw.pfizer.ah <- read.xlsx('02_Inputs/data/Pfizer_ah_CHC_2020Q1Q2.xlsx')
-raw.pfizer.bj <- read.xlsx('02_Inputs/data/Pfizer_bj_CHC_2020Q1Q2.xlsx')
-raw.pfizer.js <- read.xlsx('02_Inputs/data/Pfizer_js_CHC_2020Q1Q2.xlsx')
-raw.pfizer.sd <- read.xlsx('02_Inputs/data/Pfizer_sd_CHC_2020Q1Q2.xlsx')
-raw.pfizer.zj <- read.xlsx('02_Inputs/data/Pfizer_zj_CHC_2020Q1Q2.xlsx')
-raw.pfizer.fj <- read.xlsx('02_Inputs/data/Pfizer_fj_CHC_2020Q1Q2_0827(predicted by all_raw_data_packid_Pfizer_171819_CHC_m_v3).xlsx')
+## Pfizer
+raw.pfizer.ah <- read.xlsx('02_Inputs/data/Pfizer_安徽省_2020Q1Q2Q3_packid_moleinfo.xlsx')
+raw.pfizer.bj <- read.xlsx('02_Inputs/data/Pfizer_北京市_2020Q1Q2Q3_packid_moleinfo.xlsx')
+raw.pfizer.js <- read.xlsx('02_Inputs/data/Pfizer_江苏省_2020Q1Q2Q3_packid_moleinfo.xlsx')
+raw.pfizer.sd <- read.xlsx('02_Inputs/data/Pfizer_山东省_2020Q1Q2Q3_packid_moleinfo.xlsx')
 
 raw.pfizer <- bind_rows(raw.pfizer.ah, raw.pfizer.bj, raw.pfizer.js, 
-                        raw.pfizer.sd, raw.pfizer.zj, raw.pfizer.fj) %>% 
+                        raw.pfizer.sd) %>% 
   distinct(year = as.character(Year), 
            quarter = Quarter, 
            date = as.character(Month), 
@@ -193,17 +183,12 @@ raw.pfizer <- bind_rows(raw.pfizer.ah, raw.pfizer.bj, raw.pfizer.js,
            city = if_else(City == "市辖区", "北京", gsub("市", "", City)), 
            district = County, 
            hospital = Hospital_Name, 
-           # atc4 = ATC4_Code, 
-           # nfc = NFC123_Code, 
-           # molecule = Molecule_Desc, 
-           # product = Prd_desc, 
-           # Corp_ID, 
            packid = stri_pad_left(packcode, 7, 0), 
            units = if_else(is.na(Volume), Value / Price, Volume), 
            sales = Value) %>% 
   left_join(pchc.mapping3, by = c('province', 'city', 'district', 'hospital')) %>% 
-  bind_rows(raw.gz1, raw.gz2, history.pfizer) %>% 
-  filter(quarter %in% c('2019Q1', '2019Q2', '2020Q1', '2020Q2'), 
+  bind_rows(history.pfizer) %>% 
+  filter(quarter %in% c('2019Q3', '2020Q3'), 
          !is.na(pchc), !is.na(packid)) %>% 
   mutate(packid = if_else(stri_sub(packid, 1, 5) == '47775', 
                           stri_paste('58906', stri_sub(packid, 6, 7)), 
@@ -220,7 +205,7 @@ write.xlsx(raw.pfizer, '03_Outputs/01_Raw_Pfizer.xlsx')
 
 
 ##---- TA ----
-# market definition
+## market definition
 market.mapping <- read.xlsx("02_Inputs/Market_Def_2020_CHC_0909.xlsx", 
                             sheet = "MKT DEF")[, -1] %>% 
   select(`小市场`, `大市场`, `购买方式`, flag_mkt = flag) %>% 
@@ -232,7 +217,7 @@ market.mapping <- read.xlsx("02_Inputs/Market_Def_2020_CHC_0909.xlsx",
 market.cndrug <- read.xlsx("02_Inputs/Market_Def_2020_CHC_0909.xlsx", 
                            sheet = "XZK-其他降脂中药")
 
-# GI
+## GI
 gi.1 <- raw.az %>% 
   mutate(
     flag_mkt = case_when(
@@ -262,42 +247,6 @@ gi.3 <- raw.az %>%
   ) %>% 
   filter(flag_mkt != 0)
 
-# gi.4 <- raw.az %>% 
-#   mutate(
-#     flag_mkt = case_when(
-#       product == "SHU TAI QING       S5J" & 
-#         molecule == "MACROGOL(S)+POTASSIUM+SODIUM" & 
-#         corp == "STAIDSON BEIJING" & 
-#         stri_sub(packid, 1, 5) == "32464" ~ 4, 
-#       product == "MOVICOL            NR-" & 
-#         molecule == "MACROGOL(S)+POTASSIUM+SODIUM" & 
-#         corp == "NORGINE LIM UK" & 
-#         stri_sub(packid, 1, 5) == "66157" ~ 4, 
-#       product == "FORLAX             IPS" & 
-#         molecule == "MACROGOL(S)" & 
-#         corp == "IPSEN" & 
-#         stri_sub(packid, 1, 5) == "14351" ~ 4, 
-#       product == "CHANG SONG         C&Q" & 
-#         molecule == "MACROGOL(S)" & 
-#         corp == "CQ.PHARSCIN PHARM" & 
-#         stri_sub(packid, 1, 5) == "32293" ~ 4, 
-#       product == "RUN KE LONG        H3U" & 
-#         molecule == "MACROGOL(S)" & 
-#         corp == "HN.WARRANT PHARM" & 
-#         stri_sub(packid, 1, 5) == "32652" ~ 4, 
-#       product == "MACROGOL 4000 POWD HMA" & 
-#         molecule == "MACROGOL(S)" & 
-#         corp == "HB.MAYINGLONG PH" & 
-#         stri_sub(packid, 1, 5) == "41490" ~ 4, 
-#       product == "YOU SAI LE         CQ&" & 
-#         molecule == "MACROGOL(S)" & 
-#         corp == "CQ.SINO BIOPHARM" & 
-#         stri_sub(packid, 1, 5) == "57040" ~ 4, 
-#       TRUE ~ 0
-#     )
-#   ) %>% 
-#   filter(flag_mkt != 0)
-
 raw.gi <- bind_rows(gi.1, gi.2, gi.3) %>% 
   mutate(TA = 'GI') %>% 
   group_by(year, date, quarter, province, city, district, pchc, TA, atc4, nfc, 
@@ -307,12 +256,12 @@ raw.gi <- bind_rows(gi.1, gi.2, gi.3) %>%
   ungroup() %>% 
   left_join(market.mapping, by = 'flag_mkt')
 
-# RE
+## RE
 re.5 <- raw.az %>% 
   mutate(
     flag_mkt = case_when(
       product %in% c("SYMBICORT TURBUHAL AZN", "SERETIDE           GSK", 
-                     "FOSTER             C5I", "RELVAR") ~ 5, 
+                     "FOSTER             C5I", "RELVAR             GSK") ~ 5, 
       TRUE ~ 0
     )
   ) %>% 
@@ -408,7 +357,7 @@ raw.re <- bind_rows(re.5, re.6, re.7, re.8) %>%
   ungroup() %>% 
   left_join(market.mapping, by = 'flag_mkt')
 
-# CV
+## CV
 cv.9 <- raw.servier %>% 
   mutate(
     flag_mkt = case_when(
@@ -536,7 +485,7 @@ raw.cv <- bind_rows(cv.9, cv.10, cv.11, cv.12, cv.13, cv.14,
   ungroup() %>% 
   left_join(market.mapping, by = 'flag_mkt')
 
-# DM
+## DM
 dm.20 <- raw.servier %>% 
   mutate(
     flag_mkt = case_when(
@@ -587,7 +536,7 @@ raw.dm <- bind_rows(dm.20, dm.21, dm.22) %>%
   ungroup() %>% 
   left_join(market.mapping, by = 'flag_mkt')
 
-# Renal
+## Renal
 renal.23 <- raw.az %>% 
   mutate(
     flag_mkt = case_when(
@@ -625,15 +574,23 @@ raw.renal <- bind_rows(renal.23, renal.24, renal.25) %>%
   ungroup() %>% 
   left_join(market.mapping, by = 'flag_mkt')
 
-# bind
+## total
 raw.total <- bind_rows(raw.gi, raw.re, raw.cv, raw.dm, raw.renal) %>% 
   filter(!is.na(pchc), pchc != '#N/A', units > 0, sales > 0) %>% 
-  left_join(ims.mol, by = 'packid') %>% 
+  group_by(pchc) %>% 
+  mutate(province = first(na.omit(province)), 
+         city = first(na.omit(city)), 
+         district = first(na.omit(district))) %>% 
+  ungroup() %>% 
   group_by(year, date, quarter, province, city, district, pchc, TA, atc4, 
-           molecule = Molecule_Desc, product, packid, flag_mkt) %>% 
+           molecule, product, packid, flag_mkt) %>% 
   summarise(sales = sum(sales, na.rm = TRUE), 
             units = sum(units, na.rm = TRUE)) %>% 
   ungroup()
 
 write.xlsx(raw.total, '03_Outputs/01_AZ_CHC_Raw.xlsx')
 
+## check
+chk <- raw.total %>% 
+  add_count(date, pchc, packid, flag_mkt) %>% 
+  filter(n > 1)

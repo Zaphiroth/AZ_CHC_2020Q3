@@ -1,0 +1,96 @@
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+# ProjectName:  AZ CHC 2020Q3
+# Purpose:      Internal imputation
+# programmer:   Zhe Liu
+# Date:         2020-12-01
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+
+
+##---- Imputing growth ----
+## filter city
+imp.raw <- raw.total %>% 
+  filter(city %in% kTargetCity) %>% 
+  filter(!(province %in% c('广东'))) %>% 
+  mutate(quarter = stri_sub(quarter, 5, 6), 
+         month = stri_sub(date, 5, 6))
+
+## quarterly date continuity
+date.continuity <- imp.raw %>% 
+  distinct(province, city, district, pchc, TA, flag_mkt, atc4, molecule, 
+           product, year, quarter, month) %>% 
+  count(province, city, district, pchc, TA, flag_mkt, atc4, molecule, 
+        product, year, quarter) %>% 
+  pivot_wider(names_from = year, 
+              values_from = n, 
+              values_fill = 0) %>% 
+  mutate(cnt_min = pmin(`2019`, `2020`), 
+         cnt_max = pmax(`2019`, `2020`))
+
+## city molecule yearly growth
+city.growth <- date.continuity %>% 
+  filter(cnt_min >= 2) %>% 
+  inner_join(imp.raw, 
+             by = c("quarter", "province", "city", "district", "pchc", "TA", 
+                    "flag_mkt", "atc4", "molecule", "product")) %>% 
+  group_by(province, city, year, quarter, TA, flag_mkt, atc4, molecule) %>% 
+  summarise(sales = sum(sales, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = year, 
+              values_from = sales, 
+              values_fill = 0) %>% 
+  mutate(growth = `2020` / `2019`,
+         growth = if_else(is.na(growth) | growth < 0.1 | growth > 10, 
+                          1, 
+                          growth)) %>% 
+  select(quarter, province, city, TA, flag_mkt, atc4, molecule, growth)
+
+
+##---- Imputing existing provinces ----
+## imputing
+imputing.data <- date.continuity %>% 
+  filter(cnt_max >= 2) %>% 
+  inner_join(imp.raw, 
+             by = c("quarter", "province", "city", "district", "pchc", "TA", 
+                    "flag_mkt", "atc4", "molecule", "product")) %>% 
+  group_by(year, quarter, month, province, city, district, pchc, TA, flag_mkt, 
+           atc4, molecule, product, packid) %>% 
+  summarise(sales = sum(sales, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = year, 
+              values_from = sales, 
+              values_fill = -1) %>% 
+  left_join(city.growth, 
+            by = c("quarter", "province", "city", "TA", "flag_mkt", "atc4", 
+                   "molecule")) %>% 
+  mutate(growth = if_else(is.na(growth), 1, growth),
+         flag_2019 = if_else(`2019` == -1, 1, 0),
+         flag_2020 = if_else(`2020` == -1, 1, 0),
+         sales_2019 = if_else(flag_2019 == 1, `2020` / growth, `2019`),
+         sales_2020 = if_else(flag_2020 == 1, `2019` * growth, `2020`)) %>% 
+  pivot_longer(flag_2019:sales_2020, 
+               names_to = 'type', 
+               values_to = 'value') %>% 
+  separate(type, c("type", "year"), sep = "_") %>% 
+  select(year, quarter, month, province, city, district, pchc, TA, flag_mkt, 
+         atc4, molecule, product, packid, type, value) %>% 
+  pivot_wider(names_from = type, 
+              values_from = value) %>% 
+  mutate(date = stri_paste(year, month),
+         quarter = stri_paste(year, quarter)) %>% 
+  select(year, date, quarter, province, city, district, pchc, TA, flag_mkt, 
+         atc4, molecule, product, packid, sales_imp = sales, flag)
+
+## imputed
+imp.internal <- raw.total %>% 
+  filter(city %in% kTargetCity) %>% 
+  full_join(imputing.data, 
+            by = c("year", "date", "quarter", "province", "city", "district", 
+                   "pchc", "TA", "flag_mkt", "atc4", "molecule", "product", 
+                   "packid")) %>% 
+  mutate(sales = if_else(is.na(sales), sales_imp, sales),
+         flag1 = if_else(is.na(flag), 0, flag)) %>% 
+  select(year, date, quarter, province, city, district, pchc, TA, flag_mkt, 
+         atc4, molecule, product, packid, sales, flag1)
+
+write_feather(imp.internal, '03_Outputs/02_AZ_CHC_Internal_Imp.feather')
+
