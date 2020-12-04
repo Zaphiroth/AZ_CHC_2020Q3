@@ -133,14 +133,17 @@ write.xlsx(raw.az, '03_Outputs/01_Raw_AZ.xlsx')
 
 ## Servier
 raw.servier.ahbjjs <- read.csv('02_Inputs/data/noAZ_EPI_ahbjjs_2020Q3_packid_moleinfo.csv')
+raw.servier.fj <- read.xlsx('02_Inputs/data/Servier_福建省_2020_packid_moleinfo(predicted by Servier_fj_2018_packid_moleinfo_v2).xlsx')
 raw.servier.sd <- read.xlsx('02_Inputs/data/Servier_sd_2020Q3.xlsx')
+raw.servier.zj <- read.xlsx('02_Inputs/data/Servier_浙江省_2020Q3_packid_moleinfo(predicted by Servier_zj_2020Q1Q2_packid_moleinfo_v2).xlsx')
 
 raw.servier <- raw.servier.ahbjjs %>% 
   filter(Project == 'Servier') %>% 
-  mutate(Year = as.character(Year), 
-         Month = as.character(Month), 
-         packcode = as.character(packcode)) %>% 
+  mutate(packcode = as.character(packcode)) %>% 
   bind_rows(raw.servier.sd) %>% 
+  mutate(Year = as.character(Year), 
+         Month = as.character(Month)) %>% 
+  bind_rows(raw.servier.fj, raw.servier.zj) %>% 
   distinct(year = as.character(Year), 
            quarter = Quarter, 
            date = as.character(Month), 
@@ -171,11 +174,16 @@ write.xlsx(raw.servier, '03_Outputs/01_Raw_Servier.xlsx')
 ## Pfizer
 raw.pfizer.ah <- read.xlsx('02_Inputs/data/Pfizer_安徽省_2020Q1Q2Q3_packid_moleinfo.xlsx')
 raw.pfizer.bj <- read.xlsx('02_Inputs/data/Pfizer_北京市_2020Q1Q2Q3_packid_moleinfo.xlsx')
+raw.pfizer.fj <- read.xlsx('02_Inputs/data/Pfizer_福建省_2020_packid_moleinfo(predicted by Pfizer_fj_2018_packid_moleinfo_v2).xlsx')
 raw.pfizer.js <- read.xlsx('02_Inputs/data/Pfizer_江苏省_2020Q1Q2Q3_packid_moleinfo.xlsx')
 raw.pfizer.sd <- read.xlsx('02_Inputs/data/Pfizer_山东省_2020Q1Q2Q3_packid_moleinfo.xlsx')
+raw.pfizer.zj <- read.xlsx('02_Inputs/data/Pfizer_浙江省_2020Q3_packid_moleinfo(predicted by Pfizer_zj_2020Q1Q2_packid_moleinfo_v2).xlsx')
 
 raw.pfizer <- bind_rows(raw.pfizer.ah, raw.pfizer.bj, raw.pfizer.js, 
                         raw.pfizer.sd) %>% 
+  mutate(Year = as.character(Year), 
+         Month = as.character(Month)) %>% 
+  bind_rows(raw.pfizer.fj, raw.pfizer.zj) %>% 
   distinct(year = as.character(Year), 
            quarter = Quarter, 
            date = as.character(Month), 

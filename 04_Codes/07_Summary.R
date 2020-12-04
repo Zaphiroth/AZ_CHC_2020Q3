@@ -314,11 +314,12 @@ az.chc.total <- bind_rows(az.delivery, az.chc, az.chc.sh) %>%
 
 write.xlsx(az.chc.total, '03_Outputs/07_AZ_CHC_2017Q1_2020Q3.xlsx')
 
-## check
+## check Pack ID
 chk <- az.chc.total %>% 
   add_count(Market, YQ, City_C, Pack_ID) %>% 
   filter(n > 1)
 
+## check pack info
 chk <- az.chc.total %>% 
   distinct(Market, Pack_ID, Molecule_C, PROD_DES_C, `剂型`, `规格`, `转换比`, 
            Pack_DESC, CORP_DES_C, `IMS 药品ID`, Mole_Ename, Prod_Ename, Corp_EName, 
